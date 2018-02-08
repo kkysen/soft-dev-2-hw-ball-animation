@@ -1,0 +1,19 @@
+{
+  "author": "Khyber Sen",
+  "dependencies": {
+
+  },
+  "devDependencies": {
+    "webpack": "^3.10.0"
+  },
+  "description": "Animations",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kkysen/BallAnimation.git"
+  },
+  "scripts": {
+    "build": "webpack",
+    "watch": "webpack --watch"
+  }
+}
