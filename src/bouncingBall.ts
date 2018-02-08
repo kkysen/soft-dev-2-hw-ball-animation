@@ -1,6 +1,7 @@
-import {Actor, Game, GameRenderer, GameUpdater, newGame, Vector} from "./game";
+import {Game, GameRenderer, GameUpdater, newGame, Vector} from "./game";
 import {MathUtils} from "./utils";
 import {keyCodeToDeltaAngle, keyCodeToDeltaSpeed} from "./keys";
+import {Ball, BallRenderer} from "./ball";
 
 export interface BouncingBallOptions {
     
@@ -11,6 +12,8 @@ export interface BouncingBallOptions {
     radius: () => number;
     initialSpeed: () => number;
     initialAngle: () => number;
+    
+    render?: BallRenderer;
     
 }
 
@@ -31,7 +34,7 @@ interface PrivateBouncingBall {
     
 }
 
-export interface BouncingBall extends Actor {
+export interface BouncingBall extends Ball {
     
     readonly numBouncesText: HTMLElement;
     readonly speedText: HTMLElement;
@@ -47,9 +50,6 @@ export interface BouncingBall extends Actor {
     
     readonly initialSpeed: number;
     readonly initialAngle: number;
-    
-    readonly x: number;
-    readonly y: number;
     
     readonly speed: number;
     readonly angle: number;
@@ -158,13 +158,21 @@ export const newBouncingBall = function(options: BouncingBallOptions): BouncingB
         privateBall.y = y;
     };
     
-    const render: GameRenderer = function(game: Game): void {
+    const ballRenderer: BallRenderer = options.render;
+    
+    const delegateRender: GameRenderer = function(game: Game): void {
+        ballRenderer(game, ball);
+    };
+    
+    const ownRender: GameRenderer = function(game: Game): void {
         const context: CanvasRenderingContext2D = game.context;
         context.beginPath();
         // context.fillRect(ball.x, ball.y, ball.x + 20, ball.y + 20); // weird, size-changing rectangle
         context.ellipse(ball.x, ball.y, ball.radius, ball.radius, 0, 0, MathUtils.TAU);
         context.fill();
     };
+    
+    const render: GameRenderer = options.render ? delegateRender : ownRender;
     
     const ball: BouncingBall = {
         
@@ -213,7 +221,7 @@ export interface BouncingBallGameOptions {
     
     ballRadius?: number;
     
-    // TODO make more complete
+    ballRenderer?: BallRenderer;
     
 }
 
@@ -266,6 +274,8 @@ export const newBouncingBallGame = function(options?: BouncingBallGameOptions): 
         
         initialSpeed: () => 25,
         initialAngle: () => MathUtils.randomRange(-Math.PI, Math.PI),
+        
+        render: options.ballRenderer,
     });
     
     const privateBall: PrivateBouncingBall = ball;

@@ -60,6 +60,7 @@ exports.newGame = function () {
                 canvas.width = fields.width;
                 canvas.height = fields.height;
                 const actors = [];
+                canvas.style.border = "1px solid black";
                 const game = {
                     name: fields.name,
                     canvas: canvas,
@@ -74,12 +75,16 @@ exports.newGame = function () {
                         context.clearRect(0, 0, canvas.width, canvas.height);
                     },
                     start: function () {
-                        startGame();
+                        resume(true);
                         return game;
                     },
                     stop: function () {
                         window.cancelAnimationFrame(game.prevId);
+                        frame.prevId = null;
                         frame.time = null;
+                    },
+                    resume: function () {
+                        resume(false);
                     },
                     reset: function () {
                         actors.forEach(actor => actor.reset(game));
@@ -91,6 +96,7 @@ exports.newGame = function () {
                     },
                     startListener: listener_1.newListener(() => game.start),
                     stopListener: listener_1.newListener(() => game.stop),
+                    resumeListener: listener_1.newListener(() => game.resume),
                     resetListener: listener_1.newListener(() => game.reset),
                     restartListener: listener_1.newListener(() => game.restart),
                     actors: actors,
@@ -128,10 +134,15 @@ exports.newGame = function () {
                     render(game);
                     frame.prevId = window.requestAnimationFrame(gameLoop);
                 };
-                const startGame = function () {
-                    console.log("starting");
-                    game.reset();
-                    frame.prevId = window.requestAnimationFrame(gameLoop);
+                const resume = function (reset) {
+                    if (reset) {
+                        game.reset();
+                    }
+                    if (!frame.prevId) {
+                        // if not already stopped
+                        frame.prevId = window.requestAnimationFrame(gameLoop);
+                        console.log("starting");
+                    }
                 };
                 return game;
             },

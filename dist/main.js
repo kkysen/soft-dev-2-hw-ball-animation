@@ -60,7 +60,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 3);
+/******/ 	return __webpack_require__(__webpack_require__.s = 4);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -297,16 +297,45 @@ exports.newGame = function () {
 
 "use strict";
 
-__webpack_require__(4)
 Object.defineProperty(exports, "__esModule", { value: true });
-const animations_1 = __webpack_require__(5);
-(function () {
-    animations_1.run();
-})();
+exports.keyCodeToDeltaSpeed = function (keyCode) {
+    switch (keyCode) {
+        case 38:
+            return 1;
+        case 40:
+            return -1;
+        default:
+            return 0;
+    }
+};
+exports.keyCodeToDeltaAngle = function (keyCode) {
+    switch (keyCode) {
+        case 37:
+            return -1;
+        case 39:
+            return 1;
+        default:
+            return 0;
+    }
+};
 
 
 /***/ }),
 /* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+__webpack_require__(5)
+Object.defineProperty(exports, "__esModule", { value: true });
+const animations_1 = __webpack_require__(6);
+(function () {
+    animations_1.run(animations_1.AnimationIndex.EXPANDING_BALL_GAME);
+})();
+
+
+/***/ }),
+/* 5 */
 /***/ (function(module, exports) {
 
 HTMLElement.prototype.appendNewElement = function (tagName) {
@@ -326,25 +355,40 @@ HTMLElement.prototype.appendBr = function () {
 
 
 /***/ }),
-/* 5 */
+/* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const bouncingBall_1 = __webpack_require__(6);
-const expandingBall_1 = __webpack_require__(7);
+const bouncingBall_1 = __webpack_require__(7);
+const expandingBall_1 = __webpack_require__(8);
 const listener_1 = __webpack_require__(0);
 var AnimationIndex;
 (function (AnimationIndex) {
     AnimationIndex[AnimationIndex["EXPANDING_BALL_GAME"] = 0] = "EXPANDING_BALL_GAME";
     AnimationIndex[AnimationIndex["BOUNCING_BALL_GAME"] = 1] = "BOUNCING_BALL_GAME";
-    AnimationIndex[AnimationIndex["NUM_ANIMATIONS"] = 2] = "NUM_ANIMATIONS";
+    AnimationIndex[AnimationIndex["DVD_PLAYER_SCREEN_SAVER"] = 2] = "DVD_PLAYER_SCREEN_SAVER";
+    AnimationIndex[AnimationIndex["NUM_ANIMATIONS"] = 3] = "NUM_ANIMATIONS";
 })(AnimationIndex = exports.AnimationIndex || (exports.AnimationIndex = {}));
 const checkAnimationIndex = function (animationIndex) {
     if (animationIndex === AnimationIndex.NUM_ANIMATIONS) {
         throw new Error("animationIndex can't be NUM_ANIMATIONS");
     }
+};
+const renderImageAsBall = function (imageFile) {
+    return function (game, ball) {
+        game.context.fillText(ball.x + ", " + ball.y, game.canvas.width / 2, game.canvas.height / 2);
+    };
+};
+const newBouncingImageGame = function (parent, imageFile) {
+    return bouncingBall_1.newBouncingBallGame({
+        parent: parent,
+        gameWidth: 500,
+        gameHeight: 500,
+        ballRadius: 50,
+        ballRenderer: renderImageAsBall(imageFile),
+    });
 };
 const newAnimationGame = function (animationIndex, parent) {
     switch (animationIndex) {
@@ -366,6 +410,8 @@ const newAnimationGame = function (animationIndex, parent) {
                 gameHeight: 500,
                 ballRadius: 50,
             });
+        case AnimationIndex.DVD_PLAYER_SCREEN_SAVER:
+            return newBouncingImageGame(parent, "resources/dvdPlayer.png");
     }
 };
 const newAnimation = function (animationIndex) {
@@ -377,7 +423,7 @@ const newAnimation = function (animationIndex) {
         game: newAnimationGame(animationIndex, div),
     };
 };
-exports.run = function (animationIndex = AnimationIndex.EXPANDING_BALL_GAME) {
+exports.run = function (animationIndex) {
     checkAnimationIndex(animationIndex);
     const parent = document.body.appendNewElement("center");
     parent.appendBr();
@@ -401,7 +447,7 @@ exports.run = function (animationIndex = AnimationIndex.EXPANDING_BALL_GAME) {
 
 
 /***/ }),
-/* 6 */
+/* 7 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -409,7 +455,7 @@ exports.run = function (animationIndex = AnimationIndex.EXPANDING_BALL_GAME) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const game_1 = __webpack_require__(2);
 const utils_1 = __webpack_require__(1);
-const keys_1 = __webpack_require__(8);
+const keys_1 = __webpack_require__(3);
 exports.newBouncingBall = function (options) {
     if (!options.minBounceInterval) {
         options.minBounceInterval = 2; // default
@@ -494,13 +540,18 @@ exports.newBouncingBall = function (options) {
         privateBall.x = x;
         privateBall.y = y;
     };
-    const render = function (game) {
+    const ballRenderer = options.render;
+    const delegateRender = function (game) {
+        ballRenderer(game, ball);
+    };
+    const ownRender = function (game) {
         const context = game.context;
         context.beginPath();
         // context.fillRect(ball.x, ball.y, ball.x + 20, ball.y + 20); // weird, size-changing rectangle
         context.ellipse(ball.x, ball.y, ball.radius, ball.radius, 0, 0, utils_1.MathUtils.TAU);
         context.fill();
     };
+    const render = options.render ? delegateRender : ownRender;
     const ball = {
         numBouncesText: options.numBouncesText,
         speedText: options.speedText,
@@ -559,6 +610,7 @@ exports.newBouncingBallGame = function (options) {
         radius: () => options.ballRadius,
         initialSpeed: () => 25,
         initialAngle: () => utils_1.MathUtils.randomRange(-Math.PI, Math.PI),
+        render: options.ballRenderer,
     });
     const privateBall = ball;
     game.addActor(ball);
@@ -592,7 +644,7 @@ exports.runBouncingBallGame = function (options) {
 
 
 /***/ }),
-/* 7 */
+/* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -601,8 +653,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const game_1 = __webpack_require__(2);
 const utils_1 = __webpack_require__(1);
 const listener_1 = __webpack_require__(0);
-const keys_1 = __webpack_require__(8);
-// TODO make options object parameter instead
+const keys_1 = __webpack_require__(3);
 exports.newExpandingBall = function (options) {
     const reset = function (game) {
         privateBall.radius = ball.initialRadius;
@@ -629,11 +680,16 @@ exports.newExpandingBall = function (options) {
         }
         privateBall.radius = radius;
     };
-    const render = function (game) {
+    const ballRenderer = options.render;
+    const delegateRender = function (game) {
+        ballRenderer(game, ball);
+    };
+    const ownRender = function (game) {
         game.context.beginPath();
         game.context.ellipse(ball.x, ball.y, ball.radius, ball.radius, 0, 0, utils_1.MathUtils.TAU);
         game.context.fill();
     };
+    const render = options.render ? delegateRender : ownRender;
     const ball = {
         initialRadius: options.initialRadius,
         initialRadiusSpeed: options.initialRadiusSpeed,
@@ -666,6 +722,7 @@ exports.newExpandingBallGame = function (options) {
     const ball = exports.newExpandingBall({
         initialRadius: options.initialBallRadius,
         initialRadiusSpeed: options.initialBallRadiusSpeed,
+        render: options.ballRenderer,
     });
     const updateReverseDirectionButtonText = function () {
         reverseDirectionButton.innerText =
@@ -700,35 +757,6 @@ exports.newExpandingBallGame = function (options) {
     });
     game.ball = ball;
     return game;
-};
-
-
-/***/ }),
-/* 8 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.keyCodeToDeltaSpeed = function (keyCode) {
-    switch (keyCode) {
-        case 38:
-            return 1;
-        case 40:
-            return -1;
-        default:
-            return 0;
-    }
-};
-exports.keyCodeToDeltaAngle = function (keyCode) {
-    switch (keyCode) {
-        case 37:
-            return -1;
-        case 39:
-            return 1;
-        default:
-            return 0;
-    }
 };
 
 

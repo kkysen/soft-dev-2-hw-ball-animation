@@ -2,11 +2,14 @@ import {Actor, Game, GameRenderer, GameUpdater, newGame} from "./game";
 import {MathUtils} from "./utils";
 import {newListener} from "./listener";
 import {keyCodeToDeltaAngle, keyCodeToDeltaSpeed} from "./keys";
+import {Ball, BallRenderer} from "./ball";
 
 export interface ExpandingBallOptions {
     
     initialRadius: number,
     initialRadiusSpeed: number,
+    
+    render?: GameRenderer;
     
 }
 
@@ -19,21 +22,18 @@ interface PrivateExpandingBall {
     
 }
 
-export interface ExpandingBall extends Actor {
+export interface ExpandingBall extends Ball {
     
     readonly initialRadius: number;
     readonly initialRadiusSpeed: number;
     
     readonly radius: number;
     readonly radiusSpeed: number;
-    readonly x: number;
-    readonly y: number;
     
     onRadiusSpeedReversal?: () => any;
     
 }
 
-// TODO make options object parameter instead
 export const newExpandingBall = function(options: ExpandingBallOptions): ExpandingBall {
     
     const reset = function(game: Game): void {
@@ -63,11 +63,19 @@ export const newExpandingBall = function(options: ExpandingBallOptions): Expandi
         privateBall.radius = radius;
     };
     
-    const render: GameRenderer = function(game: Game): void {
+    const ballRenderer: BallRenderer = options.render;
+    
+    const delegateRender: GameRenderer = function(game: Game): void {
+        ballRenderer(game, ball);
+    };
+    
+    const ownRender: GameRenderer = function(game: Game): void {
         game.context.beginPath();
         game.context.ellipse(ball.x, ball.y, ball.radius, ball.radius, 0, 0, MathUtils.TAU);
         game.context.fill();
     };
+    
+    const render: GameRenderer = options.render ? delegateRender : ownRender;
     
     const ball: ExpandingBall = {
         initialRadius: options.initialRadius,
@@ -96,6 +104,8 @@ export interface ExpandingBallGameOptions {
     
     initialBallRadius: number;
     initialBallRadiusSpeed: number;
+    
+    ballRenderer?: GameRenderer;
     
 }
 
@@ -130,6 +140,7 @@ export const newExpandingBallGame = function(options: ExpandingBallGameOptions):
     const ball: ExpandingBall = newExpandingBall({
         initialRadius: options.initialBallRadius,
         initialRadiusSpeed: options.initialBallRadiusSpeed,
+        render: options.ballRenderer,
     });
     
     const updateReverseDirectionButtonText = function() {

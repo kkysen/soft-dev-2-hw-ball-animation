@@ -1,5 +1,5 @@
-import {run} from "./animations";
+import {AnimationIndex, run} from "./animations";
 
 (function() {
-    run();
+    run(AnimationIndex.EXPANDING_BALL_GAME);
 })();

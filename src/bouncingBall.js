@@ -2,12 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const game_1 = require("./game");
 const utils_1 = require("./utils");
+const keys_1 = require("./keys");
 exports.newBouncingBall = function (options) {
     if (!options.minBounceInterval) {
         options.minBounceInterval = 2; // default
     }
     const setNumBouncesText = function (numBounces = ball.numBounces) {
-        ball.numBouncesText.innerText = "0 of Bounces: " + numBounces;
+        ball.numBouncesText.innerText = "Number of Bounces: " + numBounces;
     };
     const setAngleText = function (angle = ball.angle) {
         ball.angleText.innerText = "Angle: " + utils_1.MathUtils.angleToString(angle);
@@ -22,11 +23,11 @@ exports.newBouncingBall = function (options) {
         privateBall.y = game.canvas.height / 2;
         privateBall.speed = privateBall.initialSpeed;
         privateBall.angle = privateBall.initialAngle;
-        setAngleText();
-        setSpeedText();
         privateBall.lastXBounceTick = 0;
         privateBall.lastYBounceTick = 0;
         privateBall.numBounces = 0;
+        setAngleText();
+        setSpeedText();
         setNumBouncesText();
         console.log("Initial Angle: " + utils_1.MathUtils.angleToString(ball.initialAngle));
     };
@@ -40,11 +41,11 @@ exports.newBouncingBall = function (options) {
         const yBounce = y < radius || y > canvas.height - radius;
         if (game.tick - ball.lastXBounceTick > ball.minBounceInterval && xBounce) {
             angle = -(Math.PI + angle) % utils_1.MathUtils.TAU;
-            privateBall.lastXBounceTick = this.tick;
+            privateBall.lastXBounceTick = game.tick;
         }
-        else if (this.tick - ball.lastYBounceTick > ball.minBounceInterval && yBounce) {
+        else if (game.tick - ball.lastYBounceTick > ball.minBounceInterval && yBounce) {
             angle = -angle;
-            privateBall.lastYBounceTick = this.tick;
+            privateBall.lastYBounceTick = game.tick;
         }
         if (xBounce || yBounce) {
             privateBall.numBounces++;
@@ -86,13 +87,18 @@ exports.newBouncingBall = function (options) {
         privateBall.x = x;
         privateBall.y = y;
     };
-    const render = function (game) {
+    const ballRenderer = options.render;
+    const delegateRender = function (game) {
+        ballRenderer(game, ball);
+    };
+    const ownRender = function (game) {
         const context = game.context;
         context.beginPath();
         // context.fillRect(ball.x, ball.y, ball.x + 20, ball.y + 20); // weird, size-changing rectangle
         context.ellipse(ball.x, ball.y, ball.radius, ball.radius, 0, 0, utils_1.MathUtils.TAU);
         context.fill();
     };
+    const render = options.render ? delegateRender : ownRender;
     const ball = {
         numBouncesText: options.numBouncesText,
         speedText: options.speedText,
@@ -126,12 +132,15 @@ exports.newBouncingBallGame = function (options) {
     options.gameHeight = options.gameHeight || 500;
     options.ballRadius = options.ballRadius || 50;
     const parent = options.parent.appendNewElement("center");
+    parent.appendNewElement("h4").innerText = "Use UP and DOWN arrow keys to change the velocity of the ball.";
+    parent.appendNewElement("h4").innerText = "Use LEFT and RIGHT arrow keys to change the angle of the ball.";
     const numBouncesText = parent.appendNewElement("h4");
     const angleText = parent.appendNewElement("h4");
     const speedText = parent.appendNewElement("h4");
     const canvasDiv = parent.appendNewElement("div");
     parent.appendBr();
     parent.appendBr();
+    const startButton = parent.appendButton("Start");
     const stopButton = parent.appendButton("Pause");
     const resumeButton = parent.appendButton("Resume");
     const restartButton = parent.appendButton("Restart");
@@ -148,41 +157,23 @@ exports.newBouncingBallGame = function (options) {
         radius: () => options.ballRadius,
         initialSpeed: () => 25,
         initialAngle: () => utils_1.MathUtils.randomRange(-Math.PI, Math.PI),
+        render: options.ballRenderer,
     });
     const privateBall = ball;
     game.addActor(ball);
-    game.startListener.click(resumeButton);
+    game.startListener.click(startButton);
+    game.resumeListener.click(resumeButton);
     game.stopListener.click(stopButton);
     game.restartListener.click(restartButton);
-    const keyCodeToDeltaSpeed = function (keyCode) {
-        switch (keyCode) {
-            case 38:
-                return 1;
-            case 40:
-                return -1;
-            default:
-                return 0;
-        }
-    };
-    const keyCodeToDeltaAngle = function (keyCode) {
-        switch (keyCode) {
-            case 37:
-                return -1;
-            case 39:
-                return 1;
-            default:
-                return 0;
-        }
-    };
     // change speed and angle
     window.addEventListener("keydown", function (e) {
-        const deltaSpeed = keyCodeToDeltaSpeed(e.keyCode);
+        const deltaSpeed = keys_1.keyCodeToDeltaSpeed(e.keyCode);
         privateBall.speed += deltaSpeed;
         if (deltaSpeed !== 0) {
             e.preventDefault();
         }
         ball.setSpeedText();
-        const deltaAngle = ball.speed * utils_1.MathUtils.deg2rad(keyCodeToDeltaAngle(e.keyCode));
+        const deltaAngle = ball.speed * utils_1.MathUtils.deg2rad(keys_1.keyCodeToDeltaAngle(e.keyCode));
         privateBall.angle = (ball.angle + deltaAngle) % utils_1.MathUtils.TAU;
         if (deltaAngle !== 0) {
             e.preventDefault();

@@ -1,12 +1,14 @@
-import {Game} from "./game";
+import {Game, GameRenderer} from "./game";
 import {BouncingBallGame, newBouncingBallGame} from "./bouncingBall";
 import {ExpandingBallGame, newExpandingBall, newExpandingBallGame} from "./expandingBall";
 import {newListener} from "./listener";
+import {Ball, BallRenderer} from "./ball";
 
 export enum AnimationIndex {
     
     EXPANDING_BALL_GAME = 0,
     BOUNCING_BALL_GAME,
+    DVD_PLAYER_SCREEN_SAVER,
     NUM_ANIMATIONS,
     
 }
@@ -23,6 +25,24 @@ const checkAnimationIndex = function(animationIndex: AnimationIndex): void {
     if (animationIndex === AnimationIndex.NUM_ANIMATIONS) {
         throw new Error("animationIndex can't be NUM_ANIMATIONS");
     }
+};
+
+const renderImageAsBall = function(imageFile: string): BallRenderer {
+    
+    return function(game: Game, ball: Ball) {
+        game.context.fillText(ball.x + ", " + ball.y, game.canvas.width / 2, game.canvas.height / 2);
+    };
+    
+};
+
+const newBouncingImageGame = function(parent: HTMLElement, imageFile: string): BouncingBallGame {
+    return newBouncingBallGame({
+        parent: parent,
+        gameWidth: 500,
+        gameHeight: 500,
+        ballRadius: 50,
+        ballRenderer: renderImageAsBall(imageFile),
+    });
 };
 
 const newAnimationGame = function(animationIndex: AnimationIndex, parent: HTMLElement): Game {
@@ -45,6 +65,8 @@ const newAnimationGame = function(animationIndex: AnimationIndex, parent: HTMLEl
                 gameHeight: 500,
                 ballRadius: 50,
             });
+        case AnimationIndex.DVD_PLAYER_SCREEN_SAVER:
+            return newBouncingImageGame(parent, "resources/dvdPlayer.png")
     }
 };
 
@@ -58,7 +80,7 @@ const newAnimation = function(animationIndex: AnimationIndex): Animation {
     };
 };
 
-export const run = function(animationIndex: AnimationIndex = AnimationIndex.EXPANDING_BALL_GAME): void {
+export const run = function(animationIndex: AnimationIndex): void {
     checkAnimationIndex(animationIndex);
     
     const parent: HTMLElement = document.body.appendNewElement("center");
