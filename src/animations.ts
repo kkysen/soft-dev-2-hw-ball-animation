@@ -9,7 +9,8 @@ export enum AnimationIndex {
     EXPANDING_BALL = 0,
     BOUNCING_BALL,
     BOUNCING_BALLS,
-    BOUNCING_KIRAN,
+    JUMPING_KIRAN,
+    JUMPING_KORA,
     DVD_PLAYER_SCREEN_SAVER,
     NUM_ANIMATIONS,
     
@@ -20,6 +21,7 @@ interface Animation {
     readonly index: AnimationIndex,
     readonly div: HTMLDivElement,
     readonly game: Promise<Game>,
+    paused: boolean,
     
 }
 
@@ -61,8 +63,8 @@ const newBouncingImageGame = function(parent: HTMLElement, imageFile: string, na
             return newBouncingBallGame({
                 name: name,
                 parent: parent,
-                gameWidth: 500,
-                gameHeight: 500,
+                gameWidth: 600,
+                gameHeight: 600,
                 ballRadiusX: img.width * scale,
                 ballRadiusY: img.height * scale,
                 initialBallSpeed: 10,
@@ -71,9 +73,15 @@ const newBouncingImageGame = function(parent: HTMLElement, imageFile: string, na
         });
 };
 
-const newBouncingKiranGame = function(parent: HTMLElement) {
+const newJumpingKiranGame = function(parent: HTMLElement) {
     const fileName: string = "resources/JumpingKiran.png";
     const name: string = "Jumping Kiran";
+    return newBouncingImageGame(parent, fileName, name);
+};
+
+const newJumpingKoraGame = function(parent: HTMLElement) {
+    const fileName: string = "resources/JumpingKora.png";
+    const name: string = "Jumping Kora";
     return newBouncingImageGame(parent, fileName, name);
 };
 
@@ -95,16 +103,16 @@ const newAnimationGameUnchecked = function(animationIndex: AnimationIndex, paren
         case AnimationIndex.EXPANDING_BALL:
             return Promise.resolve(newExpandingBallGame({
                 parent: parent,
-                gameWidth: 500,
-                gameHeight: 500,
+                gameWidth: 600,
+                gameHeight: 600,
                 initialBallRadius: 50,
                 initialBallRadiusSpeed: 1,
             }));
         case AnimationIndex.BOUNCING_BALL:
             return Promise.resolve(newBouncingBallGame({
                 parent: parent,
-                gameWidth: 500,
-                gameHeight: 500,
+                gameWidth: 600,
+                gameHeight: 600,
                 ballRadiusX: 50,
                 ballRadiusY: 50,
                 initialBallSpeed: 25,
@@ -113,8 +121,8 @@ const newAnimationGameUnchecked = function(animationIndex: AnimationIndex, paren
             const game: BouncingBallGame = newBouncingBallGame({
                 name: "Bouncing Balls",
                 parent: parent,
-                gameWidth: 500,
-                gameHeight: 500,
+                gameWidth: 600,
+                gameHeight: 600,
                 ballRadiusX: 10,
                 ballRadiusY: 10,
                 initialBallSpeed: 15,
@@ -122,8 +130,10 @@ const newAnimationGameUnchecked = function(animationIndex: AnimationIndex, paren
             });
             // game.ball.render = ;
             return Promise.resolve(game);
-        case AnimationIndex.BOUNCING_KIRAN:
-            return newBouncingKiranGame(parent);
+        case AnimationIndex.JUMPING_KIRAN:
+            return newJumpingKiranGame(parent);
+        case AnimationIndex.JUMPING_KORA:
+            return newJumpingKoraGame(parent);
         case AnimationIndex.DVD_PLAYER_SCREEN_SAVER:
             return newDVDPlayerScreenSaver(parent);
     }
@@ -147,6 +157,7 @@ const newAnimation = function(animationIndex: AnimationIndex): Animation {
         index: animationIndex,
         div: div,
         game: newAnimationGame(animationIndex, div),
+        paused: false,
     };
 };
 
@@ -167,7 +178,14 @@ export const run = function(animationIndex: AnimationIndex): void {
     parent.appendBr();
     
     const switchAnimation = function() {
-        animations[animationIndex].div.hidden = true; // hide last one
+        const prevAnimation: Animation = animations[animationIndex];
+        prevAnimation.div.hidden = true; // hide last one
+        prevAnimation.game.then(game => {
+            // if (game && game.running) {
+            //     game.stop();
+            //     prevAnimation.paused = true;
+            // }
+        });
         animationIndex = (animationIndex + 1) % animations.length; // switch to next
         const animation: Animation = animations[animationIndex];
         console.log("switching to:", animation);
@@ -178,6 +196,10 @@ export const run = function(animationIndex: AnimationIndex): void {
                 switchAnimation();
                 return;
             }
+            // if (prevAnimation.paused) {
+            //     game.resume();
+            //     prevAnimation.paused = false;
+            // }
             animationName.innerText = game.name;
         });
     };

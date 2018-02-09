@@ -1,5 +1,5 @@
 import {AnimationIndex, run} from "./animations";
 
 (function() {
-    run(AnimationIndex.EXPANDING_BALL);
+    run(AnimationIndex.DVD_PLAYER_SCREEN_SAVER);
 })();

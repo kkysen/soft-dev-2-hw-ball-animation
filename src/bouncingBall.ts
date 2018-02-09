@@ -252,8 +252,8 @@ export const newBouncingBallGame = function(options: BouncingBallGameOptions): B
     
     const parent = options.parent.appendNewElement("center");
     
-    parent.appendNewElement("h4").innerText = "Use UP and DOWN arrow keys to change the velocity of the ball.";
-    parent.appendNewElement("h4").innerText = "Use LEFT and RIGHT arrow keys to change the angle of the ball.";
+    parent.appendNewElement("h4").innerText = "Use UP and DOWN arrow keys to change the velocity.";
+    parent.appendNewElement("h4").innerText = "Use LEFT and RIGHT arrow keys to change the angle.";
     
     const textElements: any = {
         numBounces: nullTextElement,

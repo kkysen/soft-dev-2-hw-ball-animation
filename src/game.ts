@@ -52,6 +52,9 @@ interface GameFrame {
     delta: number;
     prevId?: number;
     
+    running: boolean;
+    paused: boolean;
+    
 }
 
 export interface GameAction {
@@ -89,11 +92,14 @@ export interface Game {
     
     clear(): void;
     
-    start: GameAction;
-    stop: GameAction;
-    resume: GameAction;
-    reset: GameAction;
-    restart: GameAction;
+    readonly start: GameAction;
+    readonly stop: GameAction;
+    readonly resume: GameAction;
+    readonly reset: GameAction;
+    readonly restart: GameAction;
+    
+    readonly running: boolean;
+    readonly paused: boolean;
     
     readonly actors: Actor[];
     
@@ -225,16 +231,20 @@ export const newGame = function(): GameBuilder {
                     
                     start: newGameAction(() => {
                         resume(true);
+                        frame.paused = false;
+                        frame.running = true;
                     }),
                     
                     stop: newGameAction(() => {
                         window.cancelAnimationFrame(game.prevId);
                         frame.prevId = null;
                         frame.time = null;
+                        frame.paused = true;
                     }),
                     
                     resume: newGameAction(() => {
                         resume(false);
+                        frame.paused = false;
                     }),
                     
                     reset: newGameAction(() => {
@@ -246,6 +256,9 @@ export const newGame = function(): GameBuilder {
                         game.reset();
                         game.start();
                     }),
+                    
+                    running: false,
+                    paused: false,
                     
                     actors: actors,
                     
