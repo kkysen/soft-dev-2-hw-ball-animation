@@ -1,12 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils_1 = require("./utils");
-exports.newListener = function (listenerCallback) {
+exports.newListener = function (listener) {
     let listeners = [];
-    const listener = function (listeners) {
+    const joinListeners = function (listeners) {
         return function (e) {
             e.preventDefault();
-            listenerCallback()(e);
+            listener(e);
             for (const listener of listeners) {
                 listener(e);
             }
@@ -20,7 +20,7 @@ exports.newListener = function (listenerCallback) {
             return this;
         },
         attachTo: function (target, type) {
-            target.addEventListener(type, listener(listeners));
+            target.addEventListener(type, joinListeners(listeners));
             listeners = [];
             return target;
         },

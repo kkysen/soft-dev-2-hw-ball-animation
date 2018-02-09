@@ -71,12 +71,12 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils_1 = __webpack_require__(1);
-exports.newListener = function (listenerCallback) {
+exports.newListener = function (listener) {
     let listeners = [];
-    const listener = function (listeners) {
+    const joinListeners = function (listeners) {
         return function (e) {
             e.preventDefault();
-            listenerCallback()(e);
+            listener(e);
             for (const listener of listeners) {
                 listener(e);
             }
@@ -90,7 +90,7 @@ exports.newListener = function (listenerCallback) {
             return this;
         },
         attachTo: function (target, type) {
-            target.addEventListener(type, listener(listeners));
+            target.addEventListener(type, joinListeners(listeners));
             listeners = [];
             return target;
         },
@@ -130,6 +130,12 @@ exports.MathUtils = {
 exports.isFunction = function (o) {
     return !!(o && o.constructor && o.call && o.apply);
 };
+class NullTextElement {
+    set innerText(text) {
+        // do nothing
+    }
+}
+exports.nullTextElement = new NullTextElement();
 
 
 /***/ }),
@@ -140,6 +146,13 @@ exports.isFunction = function (o) {
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const listener_1 = __webpack_require__(0);
+const newGameAction = function (action) {
+    const gameAction = action;
+    gameAction.listener = listener_1.newListener(action);
+    gameAction.button = document.createElement("button");
+    gameAction.listener.click(gameAction.button);
+    return gameAction;
+};
 exports.newGame = function () {
     return (function () {
         const fields = {
@@ -213,31 +226,25 @@ exports.newGame = function () {
                     clear: function () {
                         context.clearRect(0, 0, canvas.width, canvas.height);
                     },
-                    start: function () {
+                    start: newGameAction(() => {
                         resume(true);
-                        return game;
-                    },
-                    stop: function () {
+                    }),
+                    stop: newGameAction(() => {
                         window.cancelAnimationFrame(game.prevId);
                         frame.prevId = null;
                         frame.time = null;
-                    },
-                    resume: function () {
+                    }),
+                    resume: newGameAction(() => {
                         resume(false);
-                    },
-                    reset: function () {
+                    }),
+                    reset: newGameAction(() => {
                         actors.forEach(actor => actor.reset(game));
-                    },
-                    restart: function () {
+                    }),
+                    restart: newGameAction(() => {
                         game.stop();
                         game.reset();
                         game.start();
-                    },
-                    startListener: listener_1.newListener(() => game.start),
-                    stopListener: listener_1.newListener(() => game.stop),
-                    resumeListener: listener_1.newListener(() => game.resume),
-                    resetListener: listener_1.newListener(() => game.reset),
-                    restartListener: listener_1.newListener(() => game.restart),
+                    }),
                     actors: actors,
                     addActor: function (actor) {
                         actors.push(actor);
@@ -330,7 +337,7 @@ __webpack_require__(5)
 Object.defineProperty(exports, "__esModule", { value: true });
 const animations_1 = __webpack_require__(6);
 (function () {
-    animations_1.run(animations_1.AnimationIndex.EXPANDING_BALL_GAME);
+    animations_1.run(animations_1.AnimationIndex.EXPANDING_BALL);
 })();
 
 
@@ -352,6 +359,10 @@ HTMLElement.prototype.appendButton = function (buttonText) {
 HTMLElement.prototype.appendBr = function () {
     return this.appendNewElement("br");
 };
+HTMLElement.prototype.withInnerText = function (text) {
+    this.innerText = text;
+    return this;
+};
 
 
 /***/ }),
@@ -366,53 +377,116 @@ const expandingBall_1 = __webpack_require__(8);
 const listener_1 = __webpack_require__(0);
 var AnimationIndex;
 (function (AnimationIndex) {
-    AnimationIndex[AnimationIndex["EXPANDING_BALL_GAME"] = 0] = "EXPANDING_BALL_GAME";
-    AnimationIndex[AnimationIndex["BOUNCING_BALL_GAME"] = 1] = "BOUNCING_BALL_GAME";
-    AnimationIndex[AnimationIndex["DVD_PLAYER_SCREEN_SAVER"] = 2] = "DVD_PLAYER_SCREEN_SAVER";
-    AnimationIndex[AnimationIndex["NUM_ANIMATIONS"] = 3] = "NUM_ANIMATIONS";
+    AnimationIndex[AnimationIndex["EXPANDING_BALL"] = 0] = "EXPANDING_BALL";
+    AnimationIndex[AnimationIndex["BOUNCING_BALL"] = 1] = "BOUNCING_BALL";
+    AnimationIndex[AnimationIndex["BOUNCING_BALLS"] = 2] = "BOUNCING_BALLS";
+    AnimationIndex[AnimationIndex["BOUNCING_KIRAN"] = 3] = "BOUNCING_KIRAN";
+    AnimationIndex[AnimationIndex["DVD_PLAYER_SCREEN_SAVER"] = 4] = "DVD_PLAYER_SCREEN_SAVER";
+    AnimationIndex[AnimationIndex["NUM_ANIMATIONS"] = 5] = "NUM_ANIMATIONS";
 })(AnimationIndex = exports.AnimationIndex || (exports.AnimationIndex = {}));
 const checkAnimationIndex = function (animationIndex) {
     if (animationIndex === AnimationIndex.NUM_ANIMATIONS) {
         throw new Error("animationIndex can't be NUM_ANIMATIONS");
     }
 };
-const renderImageAsBall = function (imageFile) {
+const renderImageAsBall = function (image) {
     return function (game, ball) {
-        game.context.fillText(ball.x + ", " + ball.y, game.canvas.width / 2, game.canvas.height / 2);
+        game.context.drawImage(image, ball.x - ball.radiusX, ball.y - ball.radiusY, ball.radiusX * 2, ball.radiusY * 2);
     };
 };
-const newBouncingImageGame = function (parent, imageFile) {
-    return bouncingBall_1.newBouncingBallGame({
-        parent: parent,
-        gameWidth: 500,
-        gameHeight: 500,
-        ballRadius: 50,
-        ballRenderer: renderImageAsBall(imageFile),
+const newBouncingImageGame = function (parent, imageFile, name = "Bouncing Image") {
+    const maxWidth = 250;
+    const maxHeight = 250;
+    const img = new Image();
+    img.src = imageFile;
+    return new Promise((resolve, reject) => {
+        img.onload = () => resolve(img);
+        img.onerror = (e) => reject({
+            reason: "Unable to load image \"" + imageFile + "\"",
+            event: e,
+        });
+    })
+        .then(img => createImageBitmap(img))
+        .then(img => {
+        const scale = 0.5 * Math.min(1, maxWidth / img.width, maxHeight / img.height);
+        console.log(img);
+        console.log(scale);
+        return bouncingBall_1.newBouncingBallGame({
+            name: name,
+            parent: parent,
+            gameWidth: 500,
+            gameHeight: 500,
+            ballRadiusX: img.width * scale,
+            ballRadiusY: img.height * scale,
+            initialBallSpeed: 10,
+            ballRenderer: renderImageAsBall(img),
+        });
     });
 };
-const newAnimationGame = function (animationIndex, parent) {
+const newBouncingKiranGame = function (parent) {
+    const fileName = "resources/JumpingKiran.png";
+    const name = "Jumping Kiran";
+    return newBouncingImageGame(parent, fileName, name);
+};
+const newDVDPlayerScreenSaver = function (parent) {
+    const fileName = "resources/DVDPlayerLogo.jpg";
+    const name = "DVD Player Screen Saver";
+    return newBouncingImageGame(parent, fileName, name).then(game => {
+        game.start.button.innerText = "I'm waiting for the movie to start";
+        game.stop.button.innerText = "STOP";
+        return game;
+    });
+};
+const newAnimationGameUnchecked = function (animationIndex, parent) {
     switch (animationIndex) {
         case AnimationIndex.NUM_ANIMATIONS:
             checkAnimationIndex(animationIndex);
             return null;
-        case AnimationIndex.EXPANDING_BALL_GAME:
-            return expandingBall_1.newExpandingBallGame({
+        case AnimationIndex.EXPANDING_BALL:
+            return Promise.resolve(expandingBall_1.newExpandingBallGame({
                 parent: parent,
                 gameWidth: 500,
                 gameHeight: 500,
                 initialBallRadius: 50,
                 initialBallRadiusSpeed: 1,
-            });
-        case AnimationIndex.BOUNCING_BALL_GAME:
-            return bouncingBall_1.newBouncingBallGame({
+            }));
+        case AnimationIndex.BOUNCING_BALL:
+            return Promise.resolve(bouncingBall_1.newBouncingBallGame({
                 parent: parent,
                 gameWidth: 500,
                 gameHeight: 500,
-                ballRadius: 50,
+                ballRadiusX: 50,
+                ballRadiusY: 50,
+                initialBallSpeed: 25,
+            }));
+        case AnimationIndex.BOUNCING_BALLS:
+            const game = bouncingBall_1.newBouncingBallGame({
+                name: "Bouncing Balls",
+                parent: parent,
+                gameWidth: 500,
+                gameHeight: 500,
+                ballRadiusX: 10,
+                ballRadiusY: 10,
+                initialBallSpeed: 15,
+                numBalls: 10,
             });
+            // game.ball.render = ;
+            return Promise.resolve(game);
+        case AnimationIndex.BOUNCING_KIRAN:
+            return newBouncingKiranGame(parent);
         case AnimationIndex.DVD_PLAYER_SCREEN_SAVER:
-            return newBouncingImageGame(parent, "resources/dvdPlayer.png");
+            return newDVDPlayerScreenSaver(parent);
     }
+};
+const newAnimationGame = function (animationIndex, parent) {
+    return new Promise(resolve => {
+        newAnimationGameUnchecked(animationIndex, parent)
+            .then(resolve)
+            .catch(error => {
+            console.log(error);
+            resolve(null);
+        });
+    });
 };
 const newAnimation = function (animationIndex) {
     const div = document.body.appendDiv();
@@ -437,12 +511,20 @@ exports.run = function (animationIndex) {
         animations[animationIndex].div.hidden = true; // hide last one
         animationIndex = (animationIndex + 1) % animations.length; // switch to next
         const animation = animations[animationIndex];
+        console.log("switching to:", animation);
         animation.div.hidden = false; // show new one
-        animationName.innerText = animation.game.name;
+        animation.game.then(game => {
+            if (!game) {
+                // if this game wasn't loaded, skip to next
+                switchAnimation();
+                return;
+            }
+            animationName.innerText = game.name;
+        });
     };
     animationIndex = (animationIndex + animations.length - 1) % animations.length; // decrease to start with correct one
     switchAnimation();
-    listener_1.newListener(() => switchAnimation).click(switchAnimationButton);
+    listener_1.newListener(switchAnimation).click(switchAnimationButton);
 };
 
 
@@ -486,12 +568,13 @@ exports.newBouncingBall = function (options) {
     };
     const update = function (game) {
         const canvas = game.canvas;
-        const radius = ball.radius;
+        const radiusX = ball.radiusX;
+        const radiusY = ball.radiusY;
         let x = ball.x;
         let y = ball.y;
         let angle = ball.angle;
-        const xBounce = x < radius || x > canvas.width - radius;
-        const yBounce = y < radius || y > canvas.height - radius;
+        const xBounce = x < radiusX || x > canvas.width - radiusX;
+        const yBounce = y < radiusY || y > canvas.height - radiusY;
         if (game.tick - ball.lastXBounceTick > ball.minBounceInterval && xBounce) {
             angle = -(Math.PI + angle) % utils_1.MathUtils.TAU;
             privateBall.lastXBounceTick = game.tick;
@@ -508,16 +591,16 @@ exports.newBouncingBall = function (options) {
         // fail safe to rescue balls off screen
         if (game.tick % 16 === 0) {
             if (x < 0) {
-                x = radius;
+                x = radiusX;
             }
             if (x > canvas.width) {
-                x = canvas.width - radius;
+                x = canvas.width - radiusX;
             }
             if (y < 0) {
-                x = radius;
+                y = radiusY;
             }
             if (y > canvas.height) {
-                y = canvas.height - radius;
+                y = canvas.height - radiusY;
             }
         }
         // super fail safe, reset to center
@@ -548,7 +631,7 @@ exports.newBouncingBall = function (options) {
         const context = game.context;
         context.beginPath();
         // context.fillRect(ball.x, ball.y, ball.x + 20, ball.y + 20); // weird, size-changing rectangle
-        context.ellipse(ball.x, ball.y, ball.radius, ball.radius, 0, 0, utils_1.MathUtils.TAU);
+        context.ellipse(ball.x, ball.y, ball.radiusX, ball.radiusY, 0, 0, utils_1.MathUtils.TAU);
         context.fill();
     };
     const render = options.render ? delegateRender : ownRender;
@@ -560,7 +643,8 @@ exports.newBouncingBall = function (options) {
         setSpeedText: setSpeedText,
         setAngleText: setAngleText,
         minBounceInterval: options.minBounceInterval,
-        radius: options.radius(),
+        radiusX: options.radiusX(),
+        radiusY: options.radiusY(),
         // are set in reset()
         initialSpeed: 0,
         initialAngle: 0,
@@ -579,45 +663,56 @@ exports.newBouncingBall = function (options) {
     return ball;
 };
 exports.newBouncingBallGame = function (options) {
-    options = options || {};
-    options.parent = options.parent || document.body;
-    options.gameWidth = options.gameWidth || 500;
-    options.gameHeight = options.gameHeight || 500;
-    options.ballRadius = options.ballRadius || 50;
+    const numBalls = options.numBalls === undefined ? 1 : options.numBalls;
+    if (numBalls < 0) {
+        throw new Error("options.numBalls must be non-negative");
+    }
     const parent = options.parent.appendNewElement("center");
     parent.appendNewElement("h4").innerText = "Use UP and DOWN arrow keys to change the velocity of the ball.";
     parent.appendNewElement("h4").innerText = "Use LEFT and RIGHT arrow keys to change the angle of the ball.";
-    const numBouncesText = parent.appendNewElement("h4");
-    const angleText = parent.appendNewElement("h4");
-    const speedText = parent.appendNewElement("h4");
+    const textElements = {
+        numBounces: utils_1.nullTextElement,
+        angleText: utils_1.nullTextElement,
+        speedText: utils_1.nullTextElement,
+    };
+    if (!options.hideBallStats) {
+        for (const textElementName in textElements) {
+            if (textElements.hasOwnProperty(textElementName)) {
+                textElements[textElementName] = parent.appendNewElement("h4");
+            }
+        }
+    }
     const canvasDiv = parent.appendNewElement("div");
     parent.appendBr();
     parent.appendBr();
-    const startButton = parent.appendButton("Start");
-    const stopButton = parent.appendButton("Pause");
-    const resumeButton = parent.appendButton("Resume");
-    const restartButton = parent.appendButton("Restart");
     const game = game_1.newGame()
-        .name("Bouncing Ball")
+        .name(options.name || "Bouncing Ball")
         .newCanvas(canvasDiv)
         .size(options.gameWidth, options.gameHeight)
         .build();
-    const ball = exports.newBouncingBall({
-        numBouncesText: numBouncesText,
-        speedText: speedText,
-        angleText: angleText,
+    if (numBalls === 0) {
+        return game;
+    }
+    const balls = new Array(numBalls)
+        .fill(null)
+        .map(() => exports.newBouncingBall({
+        numBouncesText: textElements.numBounces,
+        speedText: textElements.speedText,
+        angleText: textElements.angleText,
         minBounceInterval: 2,
-        radius: () => options.ballRadius,
-        initialSpeed: () => 25,
+        radiusX: () => options.ballRadiusX,
+        radiusY: () => options.ballRadiusY,
+        initialSpeed: () => options.initialBallSpeed,
         initialAngle: () => utils_1.MathUtils.randomRange(-Math.PI, Math.PI),
         render: options.ballRenderer,
-    });
+    }));
+    balls.forEach(ball => game.addActor(ball));
+    parent.appendChild(game.start.button.withInnerText("Start"));
+    parent.appendChild(game.stop.button.withInnerText("Pause"));
+    parent.appendChild(game.resume.button.withInnerText("Resume"));
+    parent.appendChild(game.restart.button.withInnerText("Restart"));
+    const ball = balls[0];
     const privateBall = ball;
-    game.addActor(ball);
-    game.startListener.click(startButton);
-    game.resumeListener.click(resumeButton);
-    game.stopListener.click(stopButton);
-    game.restartListener.click(restartButton);
     // change speed and angle
     window.addEventListener("keydown", function (e) {
         const deltaSpeed = keys_1.keyCodeToDeltaSpeed(e.keyCode);
@@ -633,7 +728,9 @@ exports.newBouncingBallGame = function (options) {
         }
         ball.setAngleText();
     });
-    game.ball = ball;
+    const anyGame = game;
+    anyGame.balls = balls;
+    anyGame.ball = ball;
     return game;
 };
 exports.runBouncingBallGame = function (options) {
@@ -656,7 +753,8 @@ const listener_1 = __webpack_require__(0);
 const keys_1 = __webpack_require__(3);
 exports.newExpandingBall = function (options) {
     const reset = function (game) {
-        privateBall.radius = ball.initialRadius;
+        privateBall.radiusX = ball.initialRadius;
+        privateBall.radiusY = ball.initialRadius;
         privateBall.radiusSpeed = ball.initialRadiusSpeed;
         privateBall.x = game.canvas.width / 2;
         privateBall.y = game.canvas.height / 2;
@@ -668,17 +766,26 @@ exports.newExpandingBall = function (options) {
         }
     };
     const update = function (game) {
-        // console.log(ball.radius);
-        let radius = ball.radius;
-        radius += ball.radiusSpeed; // * game.delta * 0.001;
-        if (radius < 0) {
-            radius = 0;
+        let radiusX = ball.radiusX;
+        let radiusY = ball.radiusY;
+        radiusX += ball.radiusSpeed;
+        radiusY += ball.radiusSpeed;
+        if (radiusX < 0) {
+            radiusX = 0;
             reverseRadiusSpeed(1);
         }
-        else if (2 * radius > game.canvas.width || 2 * radius > game.canvas.height) {
+        else if (2 * radiusX > game.canvas.width) {
             reverseRadiusSpeed(-1);
         }
-        privateBall.radius = radius;
+        if (radiusY < 0) {
+            radiusY = 0;
+            reverseRadiusSpeed(1);
+        }
+        else if (2 * radiusY > game.canvas.height) {
+            reverseRadiusSpeed(-1);
+        }
+        privateBall.radiusX = radiusX;
+        privateBall.radiusY = radiusY;
     };
     const ballRenderer = options.render;
     const delegateRender = function (game) {
@@ -686,14 +793,15 @@ exports.newExpandingBall = function (options) {
     };
     const ownRender = function (game) {
         game.context.beginPath();
-        game.context.ellipse(ball.x, ball.y, ball.radius, ball.radius, 0, 0, utils_1.MathUtils.TAU);
+        game.context.ellipse(ball.x, ball.y, ball.radiusX, ball.radiusY, 0, 0, utils_1.MathUtils.TAU);
         game.context.fill();
     };
     const render = options.render ? delegateRender : ownRender;
     const ball = {
         initialRadius: options.initialRadius,
         initialRadiusSpeed: options.initialRadiusSpeed,
-        radius: 0,
+        radiusX: 0,
+        radiusY: 0,
         radiusSpeed: options.initialRadiusSpeed,
         x: 0,
         y: 0,
@@ -709,16 +817,16 @@ exports.newExpandingBallGame = function (options) {
     parent.appendNewElement("h4").innerText = "Use UP and DOWN arrow keys to change the speed of the radius.";
     const canvasDiv = parent.appendNewElement("div");
     parent.appendBr();
-    const startButton = parent.appendButton("I’m an Animaniac!");
-    const stopButton = parent.appendButton("STOP");
-    const resumeButton = parent.appendButton("Resume");
-    const reverseDirectionButton = parent.appendButton("Reverse Direction");
-    const resetButton = parent.appendButton("Reset");
     const game = game_1.newGame()
         .name("Expanding Ball")
         .newCanvas(canvasDiv)
         .size(options.gameWidth, options.gameHeight)
         .build();
+    parent.appendChild(game.start.button.withInnerText("I'm an Animaniac"));
+    parent.appendChild(game.stop.button.withInnerText("STOP"));
+    parent.appendChild(game.resume.button.withInnerText("Resume"));
+    const reverseDirectionButton = parent.appendButton("Reverse Direction");
+    parent.appendChild(game.reset.button.withInnerText("Reset"));
     const ball = exports.newExpandingBall({
         initialRadius: options.initialBallRadius,
         initialRadiusSpeed: options.initialBallRadiusSpeed,
@@ -734,10 +842,6 @@ exports.newExpandingBallGame = function (options) {
     ball.onRadiusSpeedReversal = updateReverseDirectionButtonText;
     const privateBall = ball;
     game.addActor(ball);
-    game.startListener.click(startButton);
-    game.stopListener.click(stopButton);
-    game.resumeListener.click(resumeButton);
-    game.restartListener.click(resetButton);
     listener_1.newListener(() => () => {
         console.log("reversing");
         privateBall.radiusSpeed *= -1;

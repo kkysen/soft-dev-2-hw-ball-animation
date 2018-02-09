@@ -10,6 +10,8 @@ declare interface HTMLElement {
     
     appendBr(): HTMLBRElement;
     
+    withInnerText(text: string): HTMLElement;
+    
 }
 
 HTMLElement.prototype.appendNewElement = function(tagName: string): HTMLElement {
@@ -28,4 +30,9 @@ HTMLElement.prototype.appendButton = function(buttonText: string): HTMLButtonEle
 
 HTMLElement.prototype.appendBr = function(): HTMLBRElement {
     return this.appendNewElement("br");
+};
+
+HTMLElement.prototype.withInnerText = function(text: string): HTMLElement {
+    this.innerText = text;
+    return this;
 };

@@ -54,6 +54,24 @@ interface GameFrame {
     
 }
 
+export interface GameAction {
+    
+    (): void;
+    
+    readonly listener: Listener;
+    
+    readonly button: HTMLButtonElement;
+    
+}
+
+const newGameAction = function(action: () => void): GameAction {
+    const gameAction: any = action;
+    gameAction.listener = newListener(action);
+    gameAction.button = document.createElement("button");
+    gameAction.listener.click(gameAction.button);
+    return <GameAction> gameAction;
+};
+
 export interface Game {
     
     readonly name: string;
@@ -71,25 +89,11 @@ export interface Game {
     
     clear(): void;
     
-    start(): Game;
-    
-    stop(): void;
-    
-    resume(): void;
-    
-    reset(): void;
-    
-    restart(): void;
-    
-    readonly startListener: Listener;
-    
-    readonly stopListener: Listener;
-    
-    readonly resumeListener: Listener;
-    
-    readonly resetListener: Listener;
-    
-    readonly restartListener: Listener;
+    start: GameAction;
+    stop: GameAction;
+    resume: GameAction;
+    reset: GameAction;
+    restart: GameAction;
     
     readonly actors: Actor[];
     
@@ -219,40 +223,29 @@ export const newGame = function(): GameBuilder {
                         context.clearRect(0, 0, canvas.width, canvas.height);
                     },
                     
-                    start: function(): Game {
+                    start: newGameAction(() => {
                         resume(true);
-                        return game;
-                    },
+                    }),
                     
-                    stop: function(): void {
+                    stop: newGameAction(() => {
                         window.cancelAnimationFrame(game.prevId);
                         frame.prevId = null;
                         frame.time = null;
-                    },
+                    }),
                     
-                    resume: function(): void {
+                    resume: newGameAction(() => {
                         resume(false);
-                    },
+                    }),
                     
-                    reset: function(): void {
+                    reset: newGameAction(() => {
                         actors.forEach(actor => actor.reset(game));
-                    },
+                    }),
                     
-                    restart: function(): void {
+                    restart: newGameAction(() =>  {
                         game.stop();
                         game.reset();
                         game.start();
-                    },
-                    
-                    startListener: newListener(() => game.start),
-                    
-                    stopListener: newListener(() => game.stop),
-                    
-                    resumeListener: newListener(() => game.resume),
-                    
-                    resetListener: newListener(() => game.reset),
-                    
-                    restartListener: newListener(() => game.restart),
+                    }),
                     
                     actors: actors,
                     

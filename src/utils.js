@@ -21,3 +21,9 @@ exports.MathUtils = {
 exports.isFunction = function (o) {
     return !!(o && o.constructor && o.call && o.apply);
 };
+class NullTextElement {
+    set innerText(text) {
+        // do nothing
+    }
+}
+exports.nullTextElement = new NullTextElement();

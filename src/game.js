@@ -1,6 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const listener_1 = require("./listener");
+const newGameAction = function (action) {
+    const gameAction = action;
+    gameAction.listener = listener_1.newListener(action);
+    gameAction.button = document.createElement("button");
+    gameAction.listener.click(gameAction.button);
+    return gameAction;
+};
 exports.newGame = function () {
     return (function () {
         const fields = {
@@ -74,31 +81,25 @@ exports.newGame = function () {
                     clear: function () {
                         context.clearRect(0, 0, canvas.width, canvas.height);
                     },
-                    start: function () {
+                    start: newGameAction(() => {
                         resume(true);
-                        return game;
-                    },
-                    stop: function () {
+                    }),
+                    stop: newGameAction(() => {
                         window.cancelAnimationFrame(game.prevId);
                         frame.prevId = null;
                         frame.time = null;
-                    },
-                    resume: function () {
+                    }),
+                    resume: newGameAction(() => {
                         resume(false);
-                    },
-                    reset: function () {
+                    }),
+                    reset: newGameAction(() => {
                         actors.forEach(actor => actor.reset(game));
-                    },
-                    restart: function () {
+                    }),
+                    restart: newGameAction(() => {
                         game.stop();
                         game.reset();
                         game.start();
-                    },
-                    startListener: listener_1.newListener(() => game.start),
-                    stopListener: listener_1.newListener(() => game.stop),
-                    resumeListener: listener_1.newListener(() => game.resume),
-                    resetListener: listener_1.newListener(() => game.reset),
-                    restartListener: listener_1.newListener(() => game.restart),
+                    }),
                     actors: actors,
                     addActor: function (actor) {
                         actors.push(actor);

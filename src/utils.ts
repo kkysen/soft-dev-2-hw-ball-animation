@@ -28,3 +28,19 @@ export const MathUtils = {
 export const isFunction = function(o) {
     return !!(o && o.constructor && o.call && o.apply);
 };
+
+export interface TextElement {
+    
+    innerText: string;
+    
+}
+
+class NullTextElement implements TextElement {
+    
+    set innerText(text: string) {
+        // do nothing
+    }
+    
+}
+
+export const nullTextElement = new NullTextElement();

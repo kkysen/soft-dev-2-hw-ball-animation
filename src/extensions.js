@@ -12,3 +12,7 @@ HTMLElement.prototype.appendButton = function (buttonText) {
 HTMLElement.prototype.appendBr = function () {
     return this.appendNewElement("br");
 };
+HTMLElement.prototype.withInnerText = function (text) {
+    this.innerText = text;
+    return this;
+};

@@ -15,7 +15,8 @@ export interface ExpandingBallOptions {
 
 interface PrivateExpandingBall {
     
-    radius: number;
+    radiusX: number;
+    radiusY: number;
     radiusSpeed: number;
     x: number;
     y: number;
@@ -27,7 +28,6 @@ export interface ExpandingBall extends Ball {
     readonly initialRadius: number;
     readonly initialRadiusSpeed: number;
     
-    readonly radius: number;
     readonly radiusSpeed: number;
     
     onRadiusSpeedReversal?: () => any;
@@ -37,7 +37,8 @@ export interface ExpandingBall extends Ball {
 export const newExpandingBall = function(options: ExpandingBallOptions): ExpandingBall {
     
     const reset = function(game: Game): void {
-        privateBall.radius = ball.initialRadius;
+        privateBall.radiusX = ball.initialRadius;
+        privateBall.radiusY = ball.initialRadius;
         privateBall.radiusSpeed = ball.initialRadiusSpeed;
         privateBall.x = game.canvas.width / 2;
         privateBall.y = game.canvas.height / 2;
@@ -51,16 +52,26 @@ export const newExpandingBall = function(options: ExpandingBallOptions): Expandi
     };
     
     const update: GameUpdater = function(game: Game): void {
-        // console.log(ball.radius);
-        let radius: number = ball.radius;
-        radius += ball.radiusSpeed; // * game.delta * 0.001;
-        if (radius < 0) {
-            radius = 0;
+        let radiusX: number = ball.radiusX;
+        let radiusY: number = ball.radiusY;
+        radiusX += ball.radiusSpeed;
+        radiusY += ball.radiusSpeed;
+        
+        if (radiusX < 0) {
+            radiusX = 0;
             reverseRadiusSpeed(1);
-        } else if (2 * radius > game.canvas.width || 2 * radius > game.canvas.height) {
+        } else if (2 * radiusX > game.canvas.width) {
             reverseRadiusSpeed(-1);
         }
-        privateBall.radius = radius;
+        if (radiusY < 0) {
+            radiusY = 0;
+            reverseRadiusSpeed(1);
+        } else if (2 * radiusY > game.canvas.height) {
+            reverseRadiusSpeed(-1);
+        }
+        
+        privateBall.radiusX = radiusX;
+        privateBall.radiusY = radiusY;
     };
     
     const ballRenderer: BallRenderer = options.render;
@@ -71,7 +82,7 @@ export const newExpandingBall = function(options: ExpandingBallOptions): Expandi
     
     const ownRender: GameRenderer = function(game: Game): void {
         game.context.beginPath();
-        game.context.ellipse(ball.x, ball.y, ball.radius, ball.radius, 0, 0, MathUtils.TAU);
+        game.context.ellipse(ball.x, ball.y, ball.radiusX, ball.radiusY, 0, 0, MathUtils.TAU);
         game.context.fill();
     };
     
@@ -80,7 +91,8 @@ export const newExpandingBall = function(options: ExpandingBallOptions): Expandi
     const ball: ExpandingBall = {
         initialRadius: options.initialRadius,
         initialRadiusSpeed: options.initialRadiusSpeed,
-        radius: 0,
+        radiusX: 0,
+        radiusY: 0,
         radiusSpeed: options.initialRadiusSpeed,
         x: 0,
         y: 0,
@@ -125,17 +137,17 @@ export const newExpandingBallGame = function(options: ExpandingBallGameOptions):
     
     parent.appendBr();
     
-    const startButton: HTMLButtonElement = parent.appendButton("I’m an Animaniac!");
-    const stopButton: HTMLButtonElement = parent.appendButton("STOP");
-    const resumeButton: HTMLButtonElement = parent.appendButton("Resume");
-    const reverseDirectionButton: HTMLButtonElement = parent.appendButton("Reverse Direction");
-    const resetButton: HTMLButtonElement = parent.appendButton("Reset");
-    
     const game: Game = newGame()
         .name("Expanding Ball")
         .newCanvas(canvasDiv)
         .size(options.gameWidth, options.gameHeight)
         .build();
+    
+    parent.appendChild(game.start.button.withInnerText("I'm an Animaniac"));
+    parent.appendChild(game.stop.button.withInnerText("STOP"));
+    parent.appendChild(game.resume.button.withInnerText("Resume"));
+    const reverseDirectionButton: HTMLButtonElement = parent.appendButton("Reverse Direction");
+    parent.appendChild(game.reset.button.withInnerText("Reset"));
     
     const ball: ExpandingBall = newExpandingBall({
         initialRadius: options.initialBallRadius,
@@ -156,11 +168,6 @@ export const newExpandingBallGame = function(options: ExpandingBallGameOptions):
     const privateBall: PrivateExpandingBall = ball;
     
     game.addActor(ball);
-    
-    game.startListener.click(startButton);
-    game.stopListener.click(stopButton);
-    game.resumeListener.click(resumeButton);
-    game.restartListener.click(resetButton);
     
     newListener(() => () => {
         console.log("reversing");

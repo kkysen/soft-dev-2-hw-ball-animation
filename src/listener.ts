@@ -17,14 +17,14 @@ export interface Listener {
     
 }
 
-export const newListener = function(listenerCallback: () => EventListenerAction): Listener {
+export const newListener = function(listener: EventListenerAction): Listener {
     
     let listeners: EventListenerAction[] = [];
     
-    const listener = function(listeners: EventListenerAction[]): EventListenerAction {
+    const joinListeners = function(listeners: EventListenerAction[]): EventListenerAction {
         return function(e) {
             e.preventDefault();
-            listenerCallback()(e);
+            listener(e);
             for (const listener of listeners) {
                 listener(e);
             }
@@ -41,7 +41,7 @@ export const newListener = function(listenerCallback: () => EventListenerAction)
         },
         
         attachTo: function<T extends EventTarget>(target: T, type: string): T {
-            target.addEventListener(type, listener(listeners));
+            target.addEventListener(type, joinListeners(listeners));
             listeners = [];
             return target;
         },

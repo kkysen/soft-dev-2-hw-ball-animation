@@ -1,5 +1,5 @@
 import {Game, GameRenderer, GameUpdater, newGame, Vector} from "./game";
-import {MathUtils} from "./utils";
+import {MathUtils, nullTextElement, TextElement} from "./utils";
 import {keyCodeToDeltaAngle, keyCodeToDeltaSpeed} from "./keys";
 import {Ball, BallRenderer} from "./ball";
 
@@ -9,7 +9,8 @@ export interface BouncingBallOptions {
     speedText: HTMLElement;
     angleText: HTMLElement;
     minBounceInterval?: number;
-    radius: () => number;
+    radiusX: () => number;
+    radiusY: () => number;
     initialSpeed: () => number;
     initialAngle: () => number;
     
@@ -36,17 +37,15 @@ interface PrivateBouncingBall {
 
 export interface BouncingBall extends Ball {
     
-    readonly numBouncesText: HTMLElement;
-    readonly speedText: HTMLElement;
-    readonly angleText: HTMLElement;
+    readonly numBouncesText: TextElement;
+    readonly speedText: TextElement;
+    readonly angleText: TextElement;
     
     setNumBouncesText(numBounces?: number): void;
     setSpeedText(speed?: number): void;
     setAngleText(angle?: number): void;
     
     readonly minBounceInterval: number;
-    
-    readonly radius: number;
     
     readonly initialSpeed: number;
     readonly initialAngle: number;
@@ -100,12 +99,13 @@ export const newBouncingBall = function(options: BouncingBallOptions): BouncingB
     
     const update: GameUpdater = function(game: Game): void {
         const canvas: HTMLCanvasElement = game.canvas;
-        const radius: number = ball.radius;
+        const radiusX: number = ball.radiusX;
+        const radiusY: number = ball.radiusY;
         let x: number = ball.x;
         let y: number = ball.y;
         let angle: number = ball.angle;
-        const xBounce = x < radius || x > canvas.width - radius;
-        const yBounce = y < radius || y > canvas.height - radius;
+        const xBounce = x < radiusX || x > canvas.width - radiusX;
+        const yBounce = y < radiusY || y > canvas.height - radiusY;
         if (game.tick - ball.lastXBounceTick > ball.minBounceInterval && xBounce) {
             angle = -(Math.PI + angle) % MathUtils.TAU;
             privateBall.lastXBounceTick = game.tick;
@@ -122,16 +122,16 @@ export const newBouncingBall = function(options: BouncingBallOptions): BouncingB
         // fail safe to rescue balls off screen
         if (game.tick % 16 === 0) {
             if (x < 0) {
-                x = radius;
+                x = radiusX;
             }
             if (x > canvas.width) {
-                x = canvas.width - radius;
+                x = canvas.width - radiusX;
             }
             if (y < 0) {
-                x = radius;
+                y = radiusY;
             }
             if (y > canvas.height) {
-                y = canvas.height - radius;
+                y = canvas.height - radiusY;
             }
         }
         
@@ -168,7 +168,7 @@ export const newBouncingBall = function(options: BouncingBallOptions): BouncingB
         const context: CanvasRenderingContext2D = game.context;
         context.beginPath();
         // context.fillRect(ball.x, ball.y, ball.x + 20, ball.y + 20); // weird, size-changing rectangle
-        context.ellipse(ball.x, ball.y, ball.radius, ball.radius, 0, 0, MathUtils.TAU);
+        context.ellipse(ball.x, ball.y, ball.radiusX, ball.radiusY, 0, 0, MathUtils.TAU);
         context.fill();
     };
     
@@ -185,7 +185,8 @@ export const newBouncingBall = function(options: BouncingBallOptions): BouncingB
         setAngleText: setAngleText,
         
         minBounceInterval: options.minBounceInterval,
-        radius: options.radius(),
+        radiusX: options.radiusX(),
+        radiusY: options.radiusY(),
         
         // are set in reset()
         
@@ -214,12 +215,21 @@ export const newBouncingBall = function(options: BouncingBallOptions): BouncingB
 
 export interface BouncingBallGameOptions {
     
-    parent?: HTMLElement;
+    name?: string;
     
-    gameWidth?: number;
-    gameHeight?: number;
+    parent: HTMLElement;
     
-    ballRadius?: number;
+    gameWidth: number;
+    gameHeight: number;
+    
+    numBalls?: number;
+    
+    ballRadiusX?: number;
+    ballRadiusY?: number;
+    
+    initialBallSpeed: number;
+    
+    hideBallStats?: boolean;
     
     ballRenderer?: BallRenderer;
     
@@ -227,65 +237,79 @@ export interface BouncingBallGameOptions {
 
 export interface BouncingBallGame extends Game {
 
+    readonly balls: BouncingBall[];
+    
     readonly ball: BouncingBall;
     
 }
 
-export const newBouncingBallGame = function(options?: BouncingBallGameOptions): BouncingBallGame {
+export const newBouncingBallGame = function(options: BouncingBallGameOptions): BouncingBallGame {
     
-    options = options || {};
-    options.parent = options.parent || document.body;
-    options.gameWidth = options.gameWidth || 500;
-    options.gameHeight = options.gameHeight || 500;
-    options.ballRadius = options.ballRadius || 50;
+    const numBalls: number = options.numBalls === undefined ? 1 : options.numBalls;
+    if (numBalls < 0) {
+        throw new Error("options.numBalls must be non-negative");
+    }
     
     const parent = options.parent.appendNewElement("center");
     
     parent.appendNewElement("h4").innerText = "Use UP and DOWN arrow keys to change the velocity of the ball.";
     parent.appendNewElement("h4").innerText = "Use LEFT and RIGHT arrow keys to change the angle of the ball.";
     
-    const numBouncesText: HTMLHeadingElement = parent.appendNewElement("h4");
-    const angleText: HTMLHeadingElement = parent.appendNewElement("h4");
-    const speedText: HTMLHeadingElement = parent.appendNewElement("h4");
+    const textElements: any = {
+        numBounces: nullTextElement,
+        angleText: nullTextElement,
+        speedText: nullTextElement,
+    };
+    
+    if (!options.hideBallStats) {
+        for (const textElementName in textElements) {
+            if (textElements.hasOwnProperty(textElementName)) {
+                textElements[textElementName] = parent.appendNewElement("h4");
+            }
+        }
+    }
     
     const canvasDiv: HTMLDivElement = parent.appendNewElement("div");
     
     parent.appendBr();
     parent.appendBr();
     
-    const startButton: HTMLButtonElement = parent.appendButton("Start");
-    const stopButton: HTMLButtonElement = parent.appendButton("Pause");
-    const resumeButton: HTMLButtonElement = parent.appendButton("Resume");
-    const restartButton: HTMLButtonElement = parent.appendButton("Restart");
-    
     const game: Game = newGame()
-        .name("Bouncing Ball")
+        .name(options.name || "Bouncing Ball")
         .newCanvas(canvasDiv)
         .size(options.gameWidth, options.gameHeight)
         .build();
     
-    const ball: BouncingBall = newBouncingBall({
-        numBouncesText: numBouncesText,
-        speedText: speedText,
-        angleText: angleText,
-        
-        minBounceInterval: 2,
-        radius: () => options.ballRadius,
-        
-        initialSpeed: () => 25,
-        initialAngle: () => MathUtils.randomRange(-Math.PI, Math.PI),
-        
-        render: options.ballRenderer,
-    });
+    if (numBalls === 0) {
+        return <BouncingBallGame> game;
+    }
     
+    const balls: BouncingBall[] = new Array(numBalls)
+        .fill(null)
+        .map(() => newBouncingBall({
+                numBouncesText: textElements.numBounces,
+                speedText: textElements.speedText,
+                angleText: textElements.angleText,
+        
+                minBounceInterval: 2,
+                radiusX: () => options.ballRadiusX,
+                radiusY: () => options.ballRadiusY,
+        
+                initialSpeed: () => options.initialBallSpeed,
+                initialAngle: () => MathUtils.randomRange(-Math.PI, Math.PI),
+        
+                render: options.ballRenderer,
+            })
+        );
+    balls.forEach(ball => game.addActor(ball));
+    
+    parent.appendChild(game.start.button.withInnerText("Start"));
+    parent.appendChild(game.stop.button.withInnerText("Pause"));
+    parent.appendChild(game.resume.button.withInnerText("Resume"));
+    parent.appendChild(game.restart.button.withInnerText("Restart"));
+    
+    const ball: BouncingBall = balls[0];
     const privateBall: PrivateBouncingBall = ball;
-    
-    game.addActor(ball);
-    
-    game.startListener.click(startButton);
-    game.resumeListener.click(resumeButton);
-    game.stopListener.click(stopButton);
-    game.restartListener.click(restartButton);
     
     // change speed and angle
     window.addEventListener("keydown", function(e: KeyboardEvent) {
@@ -304,7 +328,9 @@ export const newBouncingBallGame = function(options?: BouncingBallGameOptions): 
         ball.setAngleText();
     });
     
-    (<any> game).ball = ball;
+    const anyGame: any = game;
+    anyGame.balls = balls;
+    anyGame.ball = ball;
     return <BouncingBallGame> game;
 };
 
